@@ -26,9 +26,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/takehome?sslmode=disable
+      CONSUMER_URL: http://consumer:8081
     ports:
       - "8080:8080"   # REST API
       - "9100:9100"   # Metrics
+      - "6060:6060"   # pprof
 
   consumer:
     build:
@@ -40,9 +42,11 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/takehome?sslmode=disable
       PROMETHEUS_PORT: "9101"
+      PROFILING_PORT: "6061"
     ports:
       - "8081:8081"   # REST API
       - "9101:9101"   # Metrics
+      - "6061:6061"   # pprof
 
   prometheus:
     image: prom/prometheus:latest

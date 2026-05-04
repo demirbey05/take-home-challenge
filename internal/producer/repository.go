@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	CreateTask(ctx context.Context, taskType, value int) (persistence.Task, error)
 	GetPendingTasksCount(ctx context.Context) (int, error)
+	CountTasksByState(ctx context.Context, state string) (int, error)
 }
 
 type repository struct {
@@ -28,5 +29,10 @@ func (r *repository) CreateTask(ctx context.Context, taskType, value int) (persi
 
 func (r *repository) GetPendingTasksCount(ctx context.Context) (int, error) {
 	count, err := r.q.CountTasksByState(ctx, "received")
+	return int(count), err
+}
+
+func (r *repository) CountTasksByState(ctx context.Context, state string) (int, error) {
+	count, err := r.q.CountTasksByState(ctx, state)
 	return int(count), err
 }

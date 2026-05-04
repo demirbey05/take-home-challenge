@@ -28,6 +28,11 @@ func (m *mockRepository) GetPendingTasksCount(ctx context.Context) (int, error) 
 	return args.Int(0), args.Error(1)
 }
 
+func (m *mockRepository) CountTasksByState(ctx context.Context, state string) (int, error) {
+	args := m.Called(ctx, state)
+	return args.Int(0), args.Error(1)
+}
+
 // Mock Consumer Repository
 type mockConsumerRepository struct {
 	mock.Mock
