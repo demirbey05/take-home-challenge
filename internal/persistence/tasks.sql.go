@@ -114,6 +114,17 @@ func (q *Queries) SumProcessedValues(ctx context.Context) (int64, error) {
 	return column_1, err
 }
 
+const sumProcessedValuesByType = `-- name: SumProcessedValuesByType :one
+SELECT COALESCE(SUM(value), 0)::bigint FROM tasks WHERE state = 'done' AND type = $1
+`
+
+func (q *Queries) SumProcessedValuesByType(ctx context.Context, type_ int32) (int64, error) {
+	row := q.db.QueryRowContext(ctx, sumProcessedValuesByType, type_)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const updateTaskState = `-- name: UpdateTaskState :exec
 UPDATE tasks
 SET state = $2, updated_at = NOW()

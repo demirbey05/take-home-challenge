@@ -25,3 +25,6 @@ LIMIT $1;
 
 -- name: SumProcessedValues :one
 SELECT COALESCE(SUM(value), 0)::bigint FROM tasks WHERE state = 'done';
+
+-- name: SumProcessedValuesByType :one
+SELECT COALESCE(SUM(value), 0)::bigint FROM tasks WHERE state = 'done' AND type = $1;

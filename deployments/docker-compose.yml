@@ -39,6 +39,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/takehome?sslmode=disable
+      PROMETHEUS_PORT: "9101"
     ports:
       - "8081:8081"   # REST API
       - "9101:9101"   # Metrics

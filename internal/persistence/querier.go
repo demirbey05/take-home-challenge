@@ -14,6 +14,7 @@ type Querier interface {
 	GetTask(ctx context.Context, id int64) (Task, error)
 	ListPendingTasks(ctx context.Context, limit int32) ([]Task, error)
 	SumProcessedValues(ctx context.Context) (int64, error)
+	SumProcessedValuesByType(ctx context.Context, type_ int32) (int64, error)
 	UpdateTaskState(ctx context.Context, arg UpdateTaskStateParams) error
 }
 

@@ -28,7 +28,8 @@ type Config struct {
 	ProduceRatePerSec int `json:"produce_rate_per_sec"`
 
 	// Consumer-specific
-	ConsumerPort int `json:"consumer_port"`
+	RateLimitPerSec int `json:"rate_limit_per_sec"`
+	ConsumerPort    int `json:"consumer_port"`
 
 	// Logging
 	LogLevel  string `json:"log_level"`  // debug, info, warn, error
@@ -78,6 +79,11 @@ func applyEnvOverrides(cfg *Config) {
 	if v := os.Getenv("PRODUCE_RATE_PER_SEC"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			cfg.ProduceRatePerSec = n
+		}
+	}
+	if v := os.Getenv("RATE_LIMIT_PER_SEC"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.RateLimitPerSec = n
 		}
 	}
 	if v := os.Getenv("CONSUMER_PORT"); v != "" {

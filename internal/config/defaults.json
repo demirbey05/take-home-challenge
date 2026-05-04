@@ -5,6 +5,7 @@
   "max_backlog": 100,
   "produce_rate_per_sec": 20,
   "consumer_port": 8081,
+  "rate_limit_per_sec": 20,
   "log_level": "info",
   "log_format": "json",
   "profiling_port": 6060
