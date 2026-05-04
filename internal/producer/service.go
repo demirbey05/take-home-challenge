@@ -1,18 +1,14 @@
 package producer
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math/rand"
-	"net/http"
 	"time"
 
 	"github.com/demirbey05/take-home/internal/config"
-	"github.com/demirbey05/take-home/internal/persistence"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -29,20 +25,18 @@ type Service interface {
 }
 
 type service struct {
-	cfg        *config.Config
-	repo       Repository
-	logger     *slog.Logger
-	httpClient *http.Client
+	cfg      *config.Config
+	repo     Repository
+	consRepo ConsumerRepository
+	logger   *slog.Logger
 }
 
-func NewService(cfg *config.Config, repo Repository, logger *slog.Logger) Service {
+func NewService(cfg *config.Config, repo Repository, consRepo ConsumerRepository, logger *slog.Logger) Service {
 	return &service{
-		cfg:    cfg,
-		repo:   repo,
-		logger: logger,
-		httpClient: &http.Client{
-			Timeout: 5 * time.Second,
-		},
+		cfg:      cfg,
+		repo:     repo,
+		consRepo: consRepo,
+		logger:   logger,
 	}
 }
 
@@ -104,7 +98,7 @@ func (s *service) processNext(ctx context.Context) error {
 	s.logger.Debug("Created task", "id", task.ID, "type", task.Type, "value", task.Value)
 
 	// Send to consumer
-	if err := s.sendToConsumer(ctx, task); err != nil {
+	if err := s.consRepo.SendTask(ctx, task); err != nil {
 		s.logger.Warn("Failed to send task to consumer", "id", task.ID, "error", err)
 		// We don't fail the production process, the consumer can poll/pull or we can implement retry later.
 		// For now, it stays in "received" state in DB.
@@ -115,27 +109,4 @@ func (s *service) processNext(ctx context.Context) error {
 	return nil
 }
 
-func (s *service) sendToConsumer(ctx context.Context, task persistence.Task) error {
-	payload, err := json.Marshal(task)
-	if err != nil {
-		return err
-	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.ConsumerURL+"/tasks", bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code from consumer: %d", resp.StatusCode)
-	}
-
-	return nil
-}

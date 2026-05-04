@@ -69,7 +69,8 @@ func main() {
 
 	querier := persistence.New(db)
 	repo := producer.NewRepository(querier)
-	svc := producer.NewService(cfg, repo, logger)
+	consRepo := producer.NewConsumerRepository(cfg.ConsumerURL)
+	svc := producer.NewService(cfg, repo, consRepo, logger)
 	controller := producer.NewController()
 
 	httpServer := &http.Server{
