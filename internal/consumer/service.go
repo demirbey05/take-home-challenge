@@ -19,10 +19,19 @@ var (
 		Name: "consumer_tasks_processing_current",
 		Help: "The current number of tasks being processed",
 	})
+	tasksReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "consumer_tasks_received_total",
+		Help: "The total number of tasks received by the consumer",
+	})
+	tasksProcessedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "consumer_tasks_processed_total",
+		Help: "The total number of tasks processed by the consumer",
+	})
 	tasksDoneTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "consumer_tasks_done_total",
 		Help: "The total number of tasks completely processed",
 	})
+
 	tasksByTypeTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "consumer_tasks_by_type_total",
 		Help: "The total number of tasks processed partitioned by type",
@@ -67,11 +76,14 @@ func (s *service) HandleTask(ctx context.Context, task persistence.Task) error {
 		return fmt.Errorf("rate limiter wait: %w", err)
 	}
 
+	tasksReceivedTotal.Inc()
+
 	// 1. Set to "processing"
 	if err := s.repo.UpdateTaskState(ctx, task.ID, "processing"); err != nil {
 		return fmt.Errorf("updating state to processing: %w", err)
 	}
 	tasksProcessing.Inc()
+	tasksProcessedTotal.Inc()
 
 	// Handle completion
 	defer func() {
