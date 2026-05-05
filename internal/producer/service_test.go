@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/demirbey05/take-home/internal/config"
 	"github.com/demirbey05/take-home/internal/persistence"
@@ -58,6 +59,7 @@ func TestProcessNext_MaxBacklogReached(t *testing.T) {
 		repo:     repo,
 		consRepo: consRepo,
 		logger:   logger,
+		sendSem:  make(chan struct{}, maxInflightSends),
 	}
 
 	err := s.processNext(context.Background())
@@ -89,10 +91,14 @@ func TestProcessNext_Success(t *testing.T) {
 		repo:     repo,
 		consRepo: consRepo,
 		logger:   logger,
+		sendSem:  make(chan struct{}, maxInflightSends),
 	}
 
 	err := s.processNext(context.Background())
 	assert.NoError(t, err)
+
+	// Wait for async send goroutine to complete
+	s.wg.Wait()
 
 	repo.AssertExpectations(t)
 	consRepo.AssertExpectations(t)
@@ -119,11 +125,18 @@ func TestProcessNext_ConsumerSendFails(t *testing.T) {
 		repo:     repo,
 		consRepo: consRepo,
 		logger:   logger,
+		sendSem:  make(chan struct{}, maxInflightSends),
 	}
 
-	// Should not return an error because consumer failures are ignored in production loop
+	// Should not return an error because consumer failures are handled asynchronously
 	err := s.processNext(context.Background())
 	assert.NoError(t, err)
+
+	// Wait for async send goroutine to complete
+	s.wg.Wait()
+
+	// Give a moment for mock expectations to settle
+	time.Sleep(10 * time.Millisecond)
 
 	repo.AssertExpectations(t)
 	consRepo.AssertExpectations(t)

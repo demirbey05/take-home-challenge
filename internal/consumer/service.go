@@ -16,19 +16,19 @@ import (
 
 var (
 	tasksProcessing = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "tasks_processing_current",
+		Name: "consumer_tasks_processing_current",
 		Help: "The current number of tasks being processed",
 	})
 	tasksDoneTotal = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "tasks_done_total",
+		Name: "consumer_tasks_done_total",
 		Help: "The total number of tasks completely processed",
 	})
 	tasksByTypeTotal = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tasks_by_type_total",
+		Name: "consumer_tasks_by_type_total",
 		Help: "The total number of tasks processed partitioned by type",
 	}, []string{"type"})
 	taskValueSumByType = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "task_value_sum_by_type_total",
+		Name: "consumer_task_value_sum_by_type_total",
 		Help: "The sum of the value field for processed tasks partitioned by type",
 	}, []string{"type"})
 )
