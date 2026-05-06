@@ -2,6 +2,7 @@ package consumer
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"math"
@@ -66,5 +67,74 @@ func BenchmarkHandleTask_GCTuning(b *testing.B) {
 			}
 			b.StopTimer()
 		})
+	}
+}
+
+func BenchmarkHandleTask_Matrix(b *testing.B) {
+	rates := []struct {
+		name string
+		val  int
+	}{
+		{"Rate20", 20},
+		{"Rate100", 100},
+		{"Rate1000", 1000},
+		{"RateUnlimited", 0},
+	}
+
+	gcConfigs := []struct {
+		name       string
+		gogc       int
+		gomemlimit int64
+	}{
+		{"GOGC100", 100, math.MaxInt64},
+		{"GOGC50", 50, math.MaxInt64},
+		{"Limit64MB_GOGC100", 100, 64 * 1024 * 1024},
+	}
+
+	for _, r := range rates {
+		for _, gc := range gcConfigs {
+			benchName := fmt.Sprintf("%s_%s", r.name, gc.name)
+			b.Run(benchName, func(b *testing.B) {
+				// Apply GC settings
+				oldGOGC := debug.SetGCPercent(gc.gogc)
+				oldLimit := debug.SetMemoryLimit(gc.gomemlimit)
+				defer func() {
+					debug.SetGCPercent(oldGOGC)
+					debug.SetMemoryLimit(oldLimit)
+				}()
+
+				cfg := &config.Config{RateLimitPerSec: r.val}
+				repo := new(mockRepository)
+				logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+				var limiter *rate.Limiter
+				if r.val > 0 {
+					limiter = rate.NewLimiter(rate.Limit(r.val), r.val)
+				} else {
+					limiter = rate.NewLimiter(rate.Inf, 0)
+				}
+
+				s := &service{
+					cfg:     cfg,
+					repo:    repo,
+					logger:  logger,
+					limiter: limiter,
+				}
+
+				task := persistence.Task{ID: 1, Type: 3, Value: 0, State: "received"}
+
+				repo.On("UpdateTaskState", mock.Anything, task.ID, "processing").Return(nil)
+				repo.On("UpdateTaskState", mock.Anything, task.ID, "done").Return(nil)
+				repo.On("SumProcessedValuesByType", mock.Anything, int(task.Type)).Return(int64(42), nil)
+
+				ctx := context.Background()
+
+				b.ResetTimer()
+				for i := 0; i < b.N; i++ {
+					_ = s.HandleTask(ctx, task)
+				}
+				b.StopTimer()
+			})
+		}
 	}
 }

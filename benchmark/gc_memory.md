@@ -49,3 +49,40 @@ The benchmark runs isolated the core processing loop (`processNext` for Producer
    - A `GOGC` of `100` is perfectly optimal for these services given their allocation patterns. If memory footprint is completely unconstrained and you wish to squeeze out absolute maximum CPU efficiency, `GOGC=200` is viable. 
 
 This pure Go benchmark mirrors what you will observe in the Grafana dashboard under load: heavy memory limits will cause the "GC CPU Fraction" panel to spike, driving down your "Task Throughput" panel.
+
+## Rate-Limited vs. Unlimited Matrix Analysis
+
+We ran a matrix of tests multiplying `produce_rate_per_sec` (Producer) and `rate_limit_per_sec` (Consumer) with various GC tunings.
+
+**Producer Matrix Highlights (M4 CPU):**
+
+| Scenario | Rate (per sec) | GOGC | GOMEMLIMIT | Time/Op |
+| :--- | :--- | :--- | :--- | :--- |
+| **Rate20_GOGC100** | 20 | 100 | Unlimited | 50.9 ms |
+| **Rate20_Limit64MB** | 20 | 100 | 64 MB | 50.9 ms |
+| **Rate100_GOGC100** | 100 | 100 | Unlimited | 10.9 ms |
+| **Rate1000_GOGC100** | 1000 | 100 | Unlimited | 1.17 ms |
+| **RateUnlimited_GOGC100** | Unlimited | 100 | Unlimited | 13.4 µs |
+| **RateUnlimited_Limit64MB** | Unlimited | 100 | 64 MB | 27.3 µs |
+
+**Consumer Matrix Highlights (M4 CPU):**
+
+| Scenario | Rate (per sec) | GOGC | GOMEMLIMIT | Time/Op |
+| :--- | :--- | :--- | :--- | :--- |
+| **Rate20_GOGC100** | 20 | 100 | Unlimited | 40.0 ms |
+| **Rate20_Limit64MB** | 20 | 100 | 64 MB | 40.0 ms |
+| **Rate100_GOGC100** | 100 | 100 | Unlimited | 9.9 ms |
+| **Rate1000_GOGC100** | 1000 | 100 | Unlimited | 0.9 ms |
+| **RateUnlimited_GOGC100** | Unlimited | 100 | Unlimited | 19.0 µs |
+| **RateUnlimited_Limit64MB** | Unlimited | 100 | 64 MB | 43.2 µs |
+
+### Matrix Key Takeaways:
+1. **Low Rates Mask GC Issues**: When running at a bounded rate (e.g., 20 ops/sec, taking ~50ms/op intentionally due to sleeping/limiting), the GC overhead is completely masked. A 64MB tight memory limit caused zero performance degradation at 20 ops/sec or 100 ops/sec, because the idle CPU time gives the GC plenty of room to clean up memory without pausing application logic execution.
+2. **High/Unlimited Rates Expose Thrashing**: Only when the rate limits are removed (`Unlimited`) does the application push memory allocations fast enough to hit the 64MB limit, triggering the GC death-spiral (Time/Op inflates from `13µs` to `27µs` on Producer and `19µs` to `43µs` on Consumer).
+3. **Conclusion**: At your default configuration of `20 ops/sec`, GC parameters and `GOMEMLIMIT` will have negligible impact on latency or throughput. If you decide to scale these services to process thousands of tasks per second, configuring generous memory limits will become critical.
+
+
+Configuration	Rate Unlimited (ns/op)	B/op	Allocs/op
+GOGC 100	13,634	12,206	130
+GOGC 50	14,108	12,316	130
+64MB Limit	25,806	12,651	130
