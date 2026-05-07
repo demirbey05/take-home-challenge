@@ -40,6 +40,11 @@ docker-up:
 docker-down:
 	docker compose -f deployments/docker-compose.yml down -v
 
+test-cover:
+	go test -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
+
+
 ## Cleanup
 clean:
 	rm -rf bin/

@@ -141,3 +141,79 @@ func TestProcessNext_ConsumerSendFails(t *testing.T) {
 	repo.AssertExpectations(t)
 	consRepo.AssertExpectations(t)
 }
+
+func TestProcessNext_GetPendingError(t *testing.T) {
+	cfg := &config.Config{MaxBacklog: 10}
+	repo := new(mockRepository)
+	consRepo := new(mockConsumerRepository)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	repo.On("GetPendingTasksCount", mock.Anything).Return(0, errors.New("db error"))
+
+	s := &service{
+		cfg:      cfg,
+		repo:     repo,
+		consRepo: consRepo,
+		logger:   logger,
+		sendSem:  make(chan struct{}, maxInflightSends),
+	}
+
+	err := s.processNext(context.Background())
+	assert.ErrorContains(t, err, "getting pending count: db error")
+}
+
+func TestProcessNext_CreateTaskError(t *testing.T) {
+	cfg := &config.Config{MaxBacklog: 10}
+	repo := new(mockRepository)
+	consRepo := new(mockConsumerRepository)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	repo.On("GetPendingTasksCount", mock.Anything).Return(5, nil)
+	repo.On("CreateTask", mock.Anything, mock.Anything, mock.Anything).Return(persistence.Task{}, errors.New("create error"))
+
+	s := &service{
+		cfg:      cfg,
+		repo:     repo,
+		consRepo: consRepo,
+		logger:   logger,
+		sendSem:  make(chan struct{}, maxInflightSends),
+	}
+
+	err := s.processNext(context.Background())
+	assert.ErrorContains(t, err, "creating task: create error")
+}
+
+func TestNewService(t *testing.T) {
+	cfg := &config.Config{ProduceRatePerSec: 10, MaxBacklog: 100}
+	repo := new(mockRepository)
+	consRepo := new(mockConsumerRepository)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	s := NewService(cfg, repo, consRepo, logger)
+	assert.NotNil(t, s)
+}
+
+func TestStart(t *testing.T) {
+	cfg := &config.Config{ProduceRatePerSec: 100, MaxBacklog: 10}
+	repo := new(mockRepository)
+	consRepo := new(mockConsumerRepository)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// Mock backlog ok
+	repo.On("GetPendingTasksCount", mock.Anything).Return(5, nil).Maybe()
+	repo.On("CreateTask", mock.Anything, mock.Anything, mock.Anything).Return(persistence.Task{ID: 1}, nil).Maybe()
+	consRepo.On("SendTask", mock.Anything, mock.Anything).Return(nil).Maybe()
+
+	s := NewService(cfg, repo, consRepo, logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	
+	// start in background and cancel immediately
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	err := s.Start(ctx)
+	assert.NoError(t, err)
+}
