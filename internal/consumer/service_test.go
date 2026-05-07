@@ -230,7 +230,7 @@ func TestReconcileTasks_Success(t *testing.T) {
 	task2 := persistence.Task{ID: 11, Type: 2, Value: 20, State: "received"}
 
 	// Mock ListPendingTasks to return our tasks
-	repo.On("ListPendingTasks", mock.Anything, int32(100)).Return([]persistence.Task{task1, task2}, nil)
+	repo.On("ListFailedTasks", mock.Anything, int32(100)).Return([]persistence.Task{task1, task2}, nil)
 
 	// Mock HandleTask requirements for task1
 	repo.On("UpdateTaskState", mock.Anything, task1.ID, "processing").Return(nil)

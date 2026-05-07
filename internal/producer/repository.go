@@ -29,8 +29,17 @@ func (r *repository) CreateTask(ctx context.Context, taskType, value int) (persi
 }
 
 func (r *repository) GetPendingTasksCount(ctx context.Context) (int, error) {
-	count, err := r.q.CountTasksByState(ctx, "received")
-	return int(count), err
+	receivedCount, err := r.q.CountTasksByState(ctx, "received")
+	if err != nil {
+		return 0, err
+	}
+
+	failedCount, err := r.q.CountTasksByState(ctx, "failed")
+	if err != nil {
+		return 0, err
+	}
+
+	return int(receivedCount + failedCount), nil
 }
 
 func (r *repository) CountTasksByState(ctx context.Context, state string) (int, error) {
