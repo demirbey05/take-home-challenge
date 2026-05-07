@@ -1,0 +1,31 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: takehome
+    pipeline_stages:
+      - json:
+          expressions:
+            time: time
+            level: level
+      - timestamp:
+          source: time
+          format: RFC3339Nano
+      - labels:
+          level:
+    static_configs:
+      - targets: [localhost]
+        labels:
+          service: producer
+          __path__: /var/log/takehome/producer.log
+      - targets: [localhost]
+        labels:
+          service: consumer
+          __path__: /var/log/takehome/consumer.log

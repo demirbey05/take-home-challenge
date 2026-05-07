@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -44,10 +46,23 @@ func main() {
 	}
 
 	opts := &slog.HandlerOptions{Level: logLevel}
+	logWriter := io.Writer(os.Stdout)
+	var logFile *os.File
+	if cfg.LogFile != "" {
+		if err := os.MkdirAll(filepath.Dir(cfg.LogFile), 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating log directory: %v\n", err)
+		} else if f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err != nil {
+			fmt.Fprintf(os.Stderr, "Error opening log file: %v\n", err)
+		} else {
+			logFile = f
+			logWriter = io.MultiWriter(os.Stdout, logFile)
+			defer logFile.Close()
+		}
+	}
 	if cfg.LogFormat == "json" {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
+		handler = slog.NewJSONHandler(logWriter, opts)
 	} else {
-		handler = slog.NewTextHandler(os.Stdout, opts)
+		handler = slog.NewTextHandler(logWriter, opts)
 	}
 	logger = slog.New(handler)
 	slog.SetDefault(logger)
@@ -112,10 +127,10 @@ func main() {
 
 	logger.Info("Shutting down gracefully...")
 	cancel()
-	
+
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	
+
 	_ = metricsServer.Shutdown(shutdownCtx)
 	_ = restServer.Shutdown(shutdownCtx)
 

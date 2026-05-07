@@ -24,6 +24,7 @@ A two-tier worker architecture with shared PostgreSQL persistence, REST communic
 - **Persistence**: sqlc (code generation)
 - **Migrations**: gomigrate (sql-migrate)
 - **Observability**: Prometheus, Grafana, pprof
+- **Logging**: Loki + Promtail (Grafana Explore)
 - **Containerization**: Docker + Docker Compose
 
 ## Quick Start
@@ -44,6 +45,13 @@ make sqlc
 # Tear down
 make docker-down
 ```
+
+## Logs (Loki)
+
+- Grafana: `http://localhost:3000` (admin / admin)
+- Explore → Loki datasource → query examples:
+  - `{service="producer"}`
+  - `{service="consumer"}`
 
 ## Project Structure
 

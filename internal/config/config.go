@@ -34,6 +34,7 @@ type Config struct {
 	// Logging
 	LogLevel  string `json:"log_level"`  // debug, info, warn, error
 	LogFormat string `json:"log_format"` // console, json
+	LogFile   string `json:"log_file"`   // optional, logs are always written to stdout as well
 
 	// Profiling
 	ProfilingPort int `json:"profiling_port"`
@@ -96,6 +97,9 @@ func applyEnvOverrides(cfg *Config) {
 	}
 	if v := os.Getenv("LOG_FORMAT"); v != "" {
 		cfg.LogFormat = v
+	}
+	if v := os.Getenv("LOG_FILE"); v != "" {
+		cfg.LogFile = v
 	}
 	if v := os.Getenv("PROFILING_PORT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {

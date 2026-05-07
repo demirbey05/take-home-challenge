@@ -27,10 +27,13 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/takehome?sslmode=disable
       CONSUMER_URL: http://consumer:8081
+      LOG_FILE: /var/log/takehome/producer.log
     ports:
       - "8080:8080"   # REST API
       - "9100:9100"   # Metrics
       - "6060:6060"   # pprof
+    volumes:
+      - app_logs:/var/log/takehome
 
   consumer:
     build:
@@ -43,10 +46,13 @@ services:
       DATABASE_URL: postgres://postgres:postgres@db:5432/takehome?sslmode=disable
       PROMETHEUS_PORT: "9101"
       PROFILING_PORT: "6061"
+      LOG_FILE: /var/log/takehome/consumer.log
     ports:
       - "8081:8081"   # REST API
       - "9101:9101"   # Metrics
       - "6061:6061"   # pprof
+    volumes:
+      - app_logs:/var/log/takehome
 
   prometheus:
     image: prom/prometheus:latest
@@ -58,6 +64,24 @@ services:
       - producer
       - consumer
 
+  loki:
+    image: grafana/loki:3.0.0
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+
+  promtail:
+    image: grafana/promtail:3.0.0
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - app_logs:/var/log/takehome:ro
+    depends_on:
+      - loki
+
   grafana:
     image: grafana/grafana:latest
     ports:
@@ -68,6 +92,9 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning
     depends_on:
       - prometheus
+      - loki
 
 volumes:
   pgdata:
+  loki_data:
+  app_logs:
