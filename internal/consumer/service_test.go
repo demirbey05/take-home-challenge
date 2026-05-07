@@ -26,7 +26,7 @@ func (m *mockRepository) UpdateTaskState(ctx context.Context, id int64, state st
 	return args.Error(0)
 }
 
-func (m *mockRepository) ListPendingTasks(ctx context.Context, limit int32) ([]persistence.Task, error) {
+func (m *mockRepository) ListFailedTasks(ctx context.Context, limit int32) ([]persistence.Task, error) {
 	args := m.Called(ctx, limit)
 	return args.Get(0).([]persistence.Task), args.Error(1)
 }

@@ -9,7 +9,7 @@ import (
 type Repository interface {
 	UpdateTaskState(ctx context.Context, id int64, state string) error
 	SumProcessedValuesByType(ctx context.Context, taskType int) (int64, error)
-	ListPendingTasks(ctx context.Context, limit int32) ([]persistence.Task, error)
+	ListFailedTasks(ctx context.Context, limit int32) ([]persistence.Task, error)
 }
 
 type repository struct {
@@ -31,6 +31,6 @@ func (r *repository) SumProcessedValuesByType(ctx context.Context, taskType int)
 	return r.q.SumProcessedValuesByType(ctx, int32(taskType))
 }
 
-func (r *repository) ListPendingTasks(ctx context.Context, limit int32) ([]persistence.Task, error) {
-	return r.q.ListPendingTasks(ctx, limit)
+func (r *repository) ListFailedTasks(ctx context.Context, limit int32) ([]persistence.Task, error) {
+	return r.q.ListFailedTasks(ctx, limit)
 }

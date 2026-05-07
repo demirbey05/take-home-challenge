@@ -34,6 +34,11 @@ func (m *mockRepository) CountTasksByState(ctx context.Context, state string) (i
 	return args.Int(0), args.Error(1)
 }
 
+func (m *mockRepository) UpdateTaskState(ctx context.Context, id int64, state string) error {
+	args := m.Called(ctx, id, state)
+	return args.Error(0)
+}
+
 // Mock Consumer Repository
 type mockConsumerRepository struct {
 	mock.Mock
@@ -119,6 +124,50 @@ func TestProcessNext_ConsumerSendFails(t *testing.T) {
 
 	// Mock Consumer Send fails
 	consRepo.On("SendTask", mock.Anything, mockTask).Return(errors.New("network error"))
+
+	// Mock DB update state to failed
+	repo.On("UpdateTaskState", mock.Anything, mockTask.ID, "failed").Return(nil)
+
+	s := &service{
+		cfg:      cfg,
+		repo:     repo,
+		consRepo: consRepo,
+		logger:   logger,
+		sendSem:  make(chan struct{}, maxInflightSends),
+	}
+
+	// Should not return an error because consumer failures are handled asynchronously
+	err := s.processNext(context.Background())
+	assert.NoError(t, err)
+
+	// Wait for async send goroutine to complete
+	s.wg.Wait()
+
+	// Give a moment for mock expectations to settle
+	time.Sleep(10 * time.Millisecond)
+
+	repo.AssertExpectations(t)
+	consRepo.AssertExpectations(t)
+}
+
+func TestProcessNext_ConsumerSendFails_UpdateStateFails(t *testing.T) {
+	cfg := &config.Config{MaxBacklog: 10}
+	repo := new(mockRepository)
+	consRepo := new(mockConsumerRepository)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	// Mock backlog ok
+	repo.On("GetPendingTasksCount", mock.Anything).Return(5, nil)
+
+	// Mock DB create
+	mockTask := persistence.Task{ID: 3, Type: 3, Value: 30, State: "received"}
+	repo.On("CreateTask", mock.Anything, mock.Anything, mock.Anything).Return(mockTask, nil)
+
+	// Mock Consumer Send fails
+	consRepo.On("SendTask", mock.Anything, mockTask).Return(errors.New("network error"))
+
+	// Mock DB update state to failed fails
+	repo.On("UpdateTaskState", mock.Anything, mockTask.ID, "failed").Return(errors.New("db error"))
 
 	s := &service{
 		cfg:      cfg,
@@ -207,7 +256,7 @@ func TestStart(t *testing.T) {
 	s := NewService(cfg, repo, consRepo, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// start in background and cancel immediately
 	go func() {
 		time.Sleep(10 * time.Millisecond)

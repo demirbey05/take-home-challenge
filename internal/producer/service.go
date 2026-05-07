@@ -24,6 +24,11 @@ var (
 		Name: "producer_tasks_send_failures_total",
 		Help: "Total number of tasks that failed to be sent to consumer after all retries",
 	})
+
+	tasksFatalFailuresTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "producer_tasks_fatal_failures_total",
+		Help: "Total number of tasks that failed to be sent to consumer after all retries and could not be recovered",
+	})
 )
 
 type Service interface {
@@ -133,6 +138,10 @@ func (s *service) processNext(ctx context.Context) error {
 			tasksSendFailuresTotal.Inc() // Atomic safe
 			// Task stays in "received" state in DB.
 			// The consumer can pick it up via ListPendingTasks reconciliation.
+			if err := s.repo.UpdateTaskState(ctx, task.ID, "failed"); err != nil {
+				s.logger.Error("Failed to update task state", "id", task.ID, "error", err)
+				tasksFatalFailuresTotal.Inc()
+			}
 		} else {
 			s.logger.Debug("Sent task to consumer", "id", task.ID)
 		}

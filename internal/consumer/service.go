@@ -149,7 +149,7 @@ func (s *service) Start(ctx context.Context) error {
 }
 
 func (s *service) reconcileTasks(ctx context.Context) {
-	tasks, err := s.repo.ListPendingTasks(ctx, 100)
+	tasks, err := s.repo.ListFailedTasks(ctx, 100)
 	if err != nil {
 		s.logger.Error("Failed to list pending tasks during reconciliation", "error", err)
 		return

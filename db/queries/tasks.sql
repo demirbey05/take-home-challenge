@@ -23,6 +23,15 @@ WHERE state = 'received'
 ORDER BY created_at ASC
 LIMIT $1;
 
+-- name: ListFailedTasks :many
+SELECT id, type, value, state, created_at, updated_at
+FROM tasks
+WHERE state = 'failed'
+ORDER BY created_at ASC
+LIMIT $1;
+
+
+
 -- name: SumProcessedValues :one
 SELECT COALESCE(SUM(value), 0)::bigint FROM tasks WHERE state = 'done';
 

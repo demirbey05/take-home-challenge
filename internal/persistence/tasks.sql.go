@@ -65,6 +65,44 @@ func (q *Queries) GetTask(ctx context.Context, id int64) (Task, error) {
 	return i, err
 }
 
+const listFailedTasks = `-- name: ListFailedTasks :many
+SELECT id, type, value, state, created_at, updated_at
+FROM tasks
+WHERE state = 'failed'
+ORDER BY created_at ASC
+LIMIT $1
+`
+
+func (q *Queries) ListFailedTasks(ctx context.Context, limit int32) ([]Task, error) {
+	rows, err := q.db.QueryContext(ctx, listFailedTasks, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.Value,
+			&i.State,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPendingTasks = `-- name: ListPendingTasks :many
 SELECT id, type, value, state, created_at, updated_at
 FROM tasks

@@ -10,6 +10,7 @@ type Repository interface {
 	CreateTask(ctx context.Context, taskType, value int) (persistence.Task, error)
 	GetPendingTasksCount(ctx context.Context) (int, error)
 	CountTasksByState(ctx context.Context, state string) (int, error)
+	UpdateTaskState(ctx context.Context, id int64, state string) error
 }
 
 type repository struct {
@@ -35,4 +36,11 @@ func (r *repository) GetPendingTasksCount(ctx context.Context) (int, error) {
 func (r *repository) CountTasksByState(ctx context.Context, state string) (int, error) {
 	count, err := r.q.CountTasksByState(ctx, state)
 	return int(count), err
+}
+
+func (r *repository) UpdateTaskState(ctx context.Context, id int64, state string) error {
+	return r.q.UpdateTaskState(ctx, persistence.UpdateTaskStateParams{
+		ID:    id,
+		State: state,
+	})
 }
