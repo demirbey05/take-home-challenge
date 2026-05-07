@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/demirbey05/take-home/internal/config"
@@ -44,6 +45,7 @@ var (
 
 type Service interface {
 	HandleTask(ctx context.Context, task persistence.Task) error
+	Start(ctx context.Context) error
 }
 
 type service struct {
@@ -51,6 +53,7 @@ type service struct {
 	repo    Repository
 	logger  *slog.Logger
 	limiter *rate.Limiter
+	wg      sync.WaitGroup
 }
 
 func NewService(cfg *config.Config, repo Repository, logger *slog.Logger) Service {
@@ -124,4 +127,50 @@ func (s *service) HandleTask(ctx context.Context, task persistence.Task) error {
 	)
 
 	return nil
+}
+
+func (s *service) Start(ctx context.Context) error {
+	s.logger.Info("Starting consumer service reconciliation loop")
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			s.logger.Info("Consumer service stopping, waiting for in-flight tasks...")
+			s.wg.Wait()
+			s.logger.Info("All in-flight tasks completed")
+			return nil
+		case <-ticker.C:
+			s.reconcileTasks(ctx)
+		}
+	}
+}
+
+func (s *service) reconcileTasks(ctx context.Context) {
+	tasks, err := s.repo.ListPendingTasks(ctx, 100)
+	if err != nil {
+		s.logger.Error("Failed to list pending tasks during reconciliation", "error", err)
+		return
+	}
+
+	if len(tasks) > 0 {
+		s.logger.Info("Found pending tasks for reconciliation", "count", len(tasks))
+	}
+
+	for _, task := range tasks {
+		// Create a bounded goroutine or just process synchronously
+		// Synchronously is fine because HandleTask applies rate limits
+		s.wg.Add(1)
+		go func(t persistence.Task) {
+			defer s.wg.Done()
+			if err := s.HandleTask(ctx, t); err != nil {
+				// We don't error out completely, just log
+				if err != context.Canceled {
+					s.logger.Error("Failed to process reconciled task", "id", t.ID, "error", err)
+				}
+			}
+		}(task)
+	}
 }

@@ -82,6 +82,9 @@ func main() {
 		Handler: restController,
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	go func() {
 		logger.Info("Starting metrics server", "port", cfg.PrometheusPort)
 		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -96,11 +99,19 @@ func main() {
 		}
 	}()
 
+	go func() {
+		if err := svc.Start(ctx); err != nil {
+			logger.Error("Service error", "error", err)
+			cancel()
+		}
+	}()
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
 	logger.Info("Shutting down gracefully...")
+	cancel()
 	
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()

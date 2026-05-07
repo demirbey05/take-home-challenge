@@ -26,6 +26,11 @@ func (m *mockRepository) UpdateTaskState(ctx context.Context, id int64, state st
 	return args.Error(0)
 }
 
+func (m *mockRepository) ListPendingTasks(ctx context.Context, limit int32) ([]persistence.Task, error) {
+	args := m.Called(ctx, limit)
+	return args.Get(0).([]persistence.Task), args.Error(1)
+}
+
 func (m *mockRepository) SumProcessedValuesByType(ctx context.Context, taskType int) (int64, error) {
 	args := m.Called(ctx, taskType)
 	return args.Get(0).(int64), args.Error(1)
@@ -214,5 +219,59 @@ func TestNewService_DefaultRateLimit(t *testing.T) {
 
 	err := svc.HandleTask(context.Background(), task)
 	assert.NoError(t, err)
+	repo.AssertExpectations(t)
+}
+
+func TestReconcileTasks_Success(t *testing.T) {
+	repo := new(mockRepository)
+	s := newTestService(repo)
+
+	task1 := persistence.Task{ID: 10, Type: 1, Value: 10, State: "received"}
+	task2 := persistence.Task{ID: 11, Type: 2, Value: 20, State: "received"}
+
+	// Mock ListPendingTasks to return our tasks
+	repo.On("ListPendingTasks", mock.Anything, int32(100)).Return([]persistence.Task{task1, task2}, nil)
+
+	// Mock HandleTask requirements for task1
+	repo.On("UpdateTaskState", mock.Anything, task1.ID, "processing").Return(nil)
+	repo.On("UpdateTaskState", mock.Anything, task1.ID, "done").Return(nil)
+	repo.On("SumProcessedValuesByType", mock.Anything, int(task1.Type)).Return(int64(100), nil)
+
+	// Mock HandleTask requirements for task2
+	repo.On("UpdateTaskState", mock.Anything, task2.ID, "processing").Return(nil)
+	repo.On("UpdateTaskState", mock.Anything, task2.ID, "done").Return(nil)
+	repo.On("SumProcessedValuesByType", mock.Anything, int(task2.Type)).Return(int64(200), nil)
+
+	// Run reconciliation
+	s.reconcileTasks(context.Background())
+
+	// Wait for the spawned goroutines to finish
+	s.wg.Wait()
+
+	repo.AssertExpectations(t)
+}
+
+func TestStart_Lifecycle(t *testing.T) {
+	repo := new(mockRepository)
+	s := newTestService(repo)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	errCh := make(chan error)
+	go func() {
+		errCh <- s.Start(ctx)
+	}()
+
+	// Cancel immediately to trigger shutdown
+	cancel()
+
+	// Wait for Start to return
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(1 * time.Second):
+		t.Fatal("Start did not return in time after context cancellation")
+	}
+
 	repo.AssertExpectations(t)
 }

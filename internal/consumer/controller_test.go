@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,11 +14,27 @@ import (
 )
 
 type mockService struct {
+	mu           sync.Mutex
 	handledTasks []persistence.Task
 }
 
 func (m *mockService) HandleTask(ctx context.Context, task persistence.Task) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.handledTasks = append(m.handledTasks, task)
+	return nil
+}
+
+func (m *mockService) GetHandledTasks() []persistence.Task {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// Return a copy to prevent race conditions from modifications by tests
+	copied := make([]persistence.Task, len(m.handledTasks))
+	copy(copied, m.handledTasks)
+	return copied
+}
+
+func (m *mockService) Start(ctx context.Context) error {
 	return nil
 }
 
@@ -55,10 +72,11 @@ func TestRESTController_handleTasks(t *testing.T) {
 
 	// wait for the goroutine to execute
 	time.Sleep(50 * time.Millisecond)
-	if len(mockSvc.handledTasks) != 1 {
-		t.Errorf("expected 1 task handled, got %v", len(mockSvc.handledTasks))
-	} else if mockSvc.handledTasks[0].ID != task.ID {
-		t.Errorf("expected task ID %v, got %v", task.ID, mockSvc.handledTasks[0].ID)
+	handled := mockSvc.GetHandledTasks()
+	if len(handled) != 1 {
+		t.Errorf("expected 1 task handled, got %v", len(handled))
+	} else if handled[0].ID != task.ID {
+		t.Errorf("expected task ID %v, got %v", task.ID, handled[0].ID)
 	}
 
 	// Test case 2: Wrong method
