@@ -57,7 +57,6 @@ func TestRepository_CreateTask(t *testing.T) {
 func TestRepository_GetPendingTasksCount(t *testing.T) {
 	mq := &mockQuerier{
 		countTasksByStateFn: func(ctx context.Context, state string) (int64, error) {
-			assert.Equal(t, "received", state)
 			return 5, nil
 		},
 	}
@@ -65,7 +64,8 @@ func TestRepository_GetPendingTasksCount(t *testing.T) {
 
 	count, err := repo.GetPendingTasksCount(context.Background())
 	assert.NoError(t, err)
-	assert.Equal(t, 5, count)
+	// 5 for received, 5 for failed
+	assert.Equal(t, 10, count)
 }
 
 func TestRepository_CountTasksByState(t *testing.T) {
