@@ -1,0 +1,13 @@
+{
+  "database_url": "postgres://postgres:postgres@db:5432/takehome?sslmode=disable",
+  "prometheus_port": 9100,
+  "consumer_url": "http://consumer:8081",
+  "max_backlog": 100,
+  "produce_rate_per_sec": 20,
+  "consumer_port": 8081,
+  "rate_limit_per_sec": 20,
+  "log_level": "info",
+  "log_format": "json",
+  "log_file": "/var/log/producer.log",
+  "profiling_port": 6060
+}

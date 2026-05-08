@@ -8,7 +8,8 @@ import (
 	"strconv"
 )
 
-//go:embed defaults.json
+//go:embed defaults.consumer.json
+//go:embed defaults.producer.json
 var defaultsFS embed.FS
 
 // Config holds shared configuration for both producer and consumer.
@@ -41,8 +42,8 @@ type Config struct {
 }
 
 // LoadDefaults reads the embedded defaults.json and returns a Config.
-func LoadDefaults() (*Config, error) {
-	data, err := defaultsFS.ReadFile("defaults.json")
+func LoadDefaults(service string) (*Config, error) {
+	data, err := defaultsFS.ReadFile("defaults." + service + ".json")
 	if err != nil {
 		return nil, fmt.Errorf("reading embedded defaults: %w", err)
 	}

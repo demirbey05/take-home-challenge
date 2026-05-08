@@ -29,7 +29,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	cfg, err := config.LoadDefaults()
+	cfg, err := config.LoadDefaults("producer")
 	if err != nil {
 		fmt.Printf("Error loading configuration: %v\n", err)
 		os.Exit(1)
@@ -50,6 +50,7 @@ func main() {
 	logWriter := io.Writer(os.Stdout)
 	var logFile *os.File
 	if cfg.LogFile != "" {
+		fmt.Printf("Log file: %s\n", cfg.LogFile)
 		if err := os.MkdirAll(filepath.Dir(cfg.LogFile), 0o755); err != nil {
 			fmt.Fprintf(os.Stderr, "Error creating log directory: %v\n", err)
 		} else if f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err != nil {

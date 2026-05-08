@@ -28,7 +28,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	cfg, err := config.LoadDefaults()
+	cfg, err := config.LoadDefaults("consumer")
 	if err != nil {
 		fmt.Printf("Error loading configuration: %v\n", err)
 		os.Exit(1)

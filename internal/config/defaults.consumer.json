@@ -8,5 +8,6 @@
   "rate_limit_per_sec": 20,
   "log_level": "info",
   "log_format": "json",
+  "log_file": "/var/log/consumerm.log",
   "profiling_port": 6060
 }
