@@ -113,17 +113,10 @@ func (s *service) HandleTask(ctx context.Context, task persistence.Task) error {
 	tasksByTypeTotal.WithLabelValues(typeStr).Inc()
 	taskValueSumByType.WithLabelValues(typeStr).Add(float64(task.Value))
 
-	// 4. Log total sum for this type
-	totalSum, err := s.repo.SumProcessedValuesByType(ctx, int(task.Type))
-	if err != nil {
-		s.logger.Error("Failed to calculate total sum by type", "error", err, "type", task.Type)
-	}
-
 	s.logger.Info("Task processed",
 		"id", task.ID,
 		"type", task.Type,
 		"value", task.Value,
-		"total_sum_for_type", totalSum,
 	)
 
 	return nil

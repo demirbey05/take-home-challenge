@@ -39,11 +39,52 @@ make docker-up
 # Run tests
 make test
 
+# Generate an HTML coverage report
+make test-cover
+
 # Generate sqlc code
 make sqlc
 
 # Tear down
 make docker-down
+```
+
+## Test Coverage
+
+- HTML report (opens a browser when possible): `make test-cover`
+- Terminal summary:
+  - `go test -coverprofile=coverage.out ./...`
+  - `go tool cover -func=coverage.out`
+- Write HTML to a file (instead of launching a browser): `go tool cover -html=coverage.out -o coverage.html`
+
+## Flame Graph (pprof)
+
+Start the services first (e.g. `make docker-up`), then use pprof.
+
+pprof is exposed on:
+
+- Producer: `http://localhost:6060/debug/pprof/`
+- Consumer: `http://localhost:6061/debug/pprof/`
+
+Collect a CPU profile and open the pprof web UI (includes a Flame Graph view):
+
+```bash
+# Producer (30s CPU profile)
+go tool pprof -http=:8082 http://localhost:6060/debug/pprof/profile?seconds=30
+
+# Consumer (30s CPU profile)
+go tool pprof -http=:8083 http://localhost:6061/debug/pprof/profile?seconds=30
+```
+
+Other useful profiles:
+
+```bash
+# Heap profile (memory)
+go tool pprof -http=:8084 http://localhost:6060/debug/pprof/heap
+
+# Execution trace (5s)
+curl -o trace.out "http://localhost:6060/debug/pprof/trace?seconds=5"
+go tool trace trace.out
 ```
 
 ## Logs (Loki)
